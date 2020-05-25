@@ -1,7 +1,6 @@
 import bluetooth as BT
 import RPi.GPIO as GPIO
 import traceback as TRACE
-import sys as SYS
 '''
 Setup GPIO things.
 Diagram:Car:Truck:Wire:Target
@@ -13,7 +12,6 @@ Diagram:Car:Truck:Wire:Target
 LISTENING: 13:RED 
 CONNECTED: 21:GREEN
 '''
-vehicle="car"
 GPIO.setmode(GPIO.BCM)
 lightList=13
 lightConn=6
@@ -54,14 +52,17 @@ def zero():
     GPIO.output(lightConn,0)
     FRN()
     LRN()
-def dieDamnit(cSock,sSock):
+def killServer(cSock,sSock):
+    zero()
+    GPIO.cleanup()
     try:
-        zero()
         cSock.close()
+    except:
+        print("Unable to close client socket.")
+    try:
         sSock.close()
     except:
-        print("Exception in die()")
-    SYS.exit(0)
+        print("Unable to close server socket.") 
 
 '''Set up bluetooth things'''
 superDone=False
@@ -88,7 +89,7 @@ while not superDone:
             GPIO.output(lightConn,1)
             while connected:
                 data=client_sock.recv(1024).decode()
-                print("recieved '{}'".format(data))
+                #print("recieved '{}'".format(data))
                 if data=="wa":
                     FORWARD()
                     LEFT()
@@ -120,14 +121,16 @@ while not superDone:
                     client_sock.close()
                     connected = False
                 else:
-                    print("unexpected data recieved")
+                    print("unexpected data recieved {}".format(data))
         except KeyboardInterrupt:
             client_sock.close()
             connected = False
             superDone = True
+        except:
+            client_sock.close()
+            connected = False
 
     except:
         TRACE.print_exc()
-        dieDamnit(client_sock,server_sock)
-dieDamnit(client_sock,server_sock)
-GPIO.cleanup()
+        superDone = True
+killServer(client_sock,server_sock)
