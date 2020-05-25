@@ -13,14 +13,14 @@ Diagram:Car:Truck:Wire:Target
 LISTENING: 13:RED 
 CONNECTED: 21:GREEN
 '''
-vehicle="truck"
+vehicle="car"
 GPIO.setmode(GPIO.BCM)
-lightList=21
-lightConn=13
-left=20
-right=16
-reverse=19
-forward=26
+lightList=13
+lightConn=6
+left=21
+right=22
+reverse=23
+forward=24
 client_sock=None
 server_sock=None
 
@@ -57,32 +57,38 @@ def zero():
 def dieDamnit(cSock,sSock):
     try:
         zero()
-        sSock.close()
         cSock.close()
+        sSock.close()
     except:
-        print("")
+        print("Exception in die()")
     SYS.exit(0)
 
 '''Set up bluetooth things'''
 superDone=False
 while not superDone:
     try:
-        done=False
+        connected=False
         zero()
         server_sock=BT.BluetoothSocket(BT.RFCOMM)
         server_sock.bind(("",BT.PORT_ANY))
         server_sock.listen(1)
         GPIO.output(lightConn,0)
         GPIO.output(lightList,1)
-        port=server_sock.getsockname()[1]
-        uuid="96aba6f4-50b1-4737-b3e8-30a430ea494b"
-        BT.advertise_service(server_sock,"Pi-Car",service_id=uuid,service_classes=[uuid,BT.SERIAL_PORT_CLASS],profiles=[BT.SERIAL_PORT_PROFILE])
+        uuid="89cdc54c-9dcb-11ea-b26b-2baa1b4a399b"
+        BT.advertise_service(server_sock,
+                "Pi-Car",
+                service_id=uuid,
+                service_classes=[uuid,BT.SERIAL_PORT_CLASS],
+                profiles=[BT.SERIAL_PORT_PROFILE]
+                )
         try:
             client_sock,address=server_sock.accept()
+            connected = True
             GPIO.output(lightList,0)
             GPIO.output(lightConn,1)
-            while not done:
-                data=client_sock.recv(1024)
+            while connected:
+                data=client_sock.recv(1024).decode()
+                print("recieved '{}'".format(data))
                 if data=="wa":
                     FORWARD()
                     LEFT()
@@ -111,15 +117,17 @@ while not superDone:
                     FRN()
                     LRN()
                 elif data=="l":
-                    done=True 
+                    client_sock.close()
+                    connected = False
+                else:
+                    print("unexpected data recieved")
         except KeyboardInterrupt:
             client_sock.close()
-            done=True
-            superDone=True
+            connected = False
+            superDone = True
 
     except:
-        print("")
-        #print(SYS.exc_info()[0])
-        #TRACE.print_exc()
+        TRACE.print_exc()
         dieDamnit(client_sock,server_sock)
 dieDamnit(client_sock,server_sock)
+GPIO.cleanup()
